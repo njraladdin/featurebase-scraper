@@ -20,6 +20,25 @@ const COMMON_HEADERS = {
 // --- Helper Functions ---
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Sanitize a string to be used as part of a filename
+function sanitizeForFilename(str) {
+    if (!str) return 'unknown';
+    
+    // First replace spaces with underscores
+    let sanitized = str.toLowerCase().replace(/\s+/g, '_');
+    
+    // Then replace any non-alphanumeric characters (including emojis) with nothing
+    sanitized = sanitized.replace(/[^\w\-]/g, '');
+    
+    // Finally, replace any sequences of multiple underscores with a single underscore
+    sanitized = sanitized.replace(/_+/g, '_');
+    
+    // Remove leading or trailing underscores
+    sanitized = sanitized.replace(/^_+|_+$/g, '');
+    
+    return sanitized || 'unknown';
+}
+
 // Build URLs and filenames based on product domain
 function getConfig(productDomain = DEFAULT_PRODUCT) {
     // Ensure productDomain has a valid TLD
@@ -39,6 +58,7 @@ function getConfig(productDomain = DEFAULT_PRODUCT) {
         PAGE_OUTPUT_TEMPLATE: 'feedback_page_{page}.json',
         FORMATTED_PAGE_OUTPUT_TEMPLATE: 'feedback_page_{page}_formatted.json',
         FORMATTED_OUTPUT_FILE: 'feedback.json',
+        CATEGORY_OUTPUT_TEMPLATE: 'feedback_category_{category}.json',
     };
 }
 
@@ -407,10 +427,34 @@ async function fetchAllPosts(productDomain = DEFAULT_PRODUCT, limit = DEFAULT_LI
 
     } while (true); // Loop condition managed inside
 
+    // Group posts by category
+    const groupedByCategory = {};
+
+    console.log("\nGrouping posts by category...");
+    for (const post of allFormattedPosts) {
+        // Group by category
+        if (post.category && post.category.name) {
+            const categoryName = sanitizeForFilename(post.category.name);
+            if (!groupedByCategory[categoryName]) {
+                groupedByCategory[categoryName] = [];
+            }
+            groupedByCategory[categoryName].push(post);
+        }
+    }
+
+    // Save each category to a separate file
+    console.log("\nSaving posts by category...");
+    for (const [category, posts] of Object.entries(groupedByCategory)) {
+        const categoryFilename = config.CATEGORY_OUTPUT_TEMPLATE.replace('{category}', category);
+        console.log(`Saving ${posts.length} posts in category '${category}'...`);
+        await saveToJson(posts, categoryFilename, true, config);
+    }
+
     console.log(`\nProcess complete. Total detailed posts fetched: ${allDetailedPosts.length}`);
     console.log(`All raw data has been saved to ${path.join(config.OUTPUT_DEBUG_DIR, config.OUTPUT_FILE)}`);
     console.log(`All formatted data has been saved to ${path.join(config.OUTPUT_DIR, config.FORMATTED_OUTPUT_FILE)}`);
     console.log(`Individual page files have also been saved in the ${config.OUTPUT_DEBUG_DIR} directory.`);
+    console.log(`Category-specific files (feedback_category_*.json) have been saved to the ${config.OUTPUT_DIR} directory.`);
     console.log("\nScript finished.");
     
     return allFormattedPosts;

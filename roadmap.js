@@ -39,11 +39,31 @@ function getConfig(productDomain = DEFAULT_PRODUCT) {
         ROADMAP_OUTPUT_FILE: 'roadmap_raw.json',
         FORMATTED_ROADMAP_OUTPUT_FILE: 'roadmap.json',
         PAGE_OUTPUT_TEMPLATE: 'roadmap_section_{section}_page_{page}.json',
+        SECTION_OUTPUT_TEMPLATE: 'roadmap_section_{section}.json',
     };
 }
 
 // --- Helper Functions ---
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Sanitize a string to be used as part of a filename
+function sanitizeForFilename(str) {
+    if (!str) return 'unknown';
+    
+    // First replace spaces with underscores
+    let sanitized = str.toLowerCase().replace(/\s+/g, '_');
+    
+    // Then replace any non-alphanumeric characters (including emojis) with nothing
+    sanitized = sanitized.replace(/[^\w\-]/g, '');
+    
+    // Finally, replace any sequences of multiple underscores with a single underscore
+    sanitized = sanitized.replace(/_+/g, '_');
+    
+    // Remove leading or trailing underscores
+    sanitized = sanitized.replace(/^_+|_+$/g, '');
+    
+    return sanitized || 'unknown';
+}
 
 // Get roadmap sections from the organization API
 async function fetchRoadmapSections(config) {
@@ -571,9 +591,19 @@ async function fetchAllRoadmapData(limitPerSection = 0, productDomain = DEFAULT_
     // Save formatted data to main output directory
     await saveToJson(formattedRoadmapData, config.FORMATTED_ROADMAP_OUTPUT_FILE, true, config);
     
+    // Save each section to a separate file
+    console.log('\nSaving individual roadmap sections to separate files...');
+    for (const [sectionName, sectionData] of Object.entries(formattedRoadmapData)) {
+        const sanitizedSectionName = sanitizeForFilename(sectionName);
+        const sectionFileName = config.SECTION_OUTPUT_TEMPLATE.replace('{section}', sanitizedSectionName);
+        console.log(`Saving section '${sectionName}' with ${sectionData.length} items to ${sectionFileName}...`);
+        await saveToJson(sectionData, sectionFileName, true, config);
+    }
+    
     console.log('\nCompleted fetching and saving all roadmap data!');
     console.log(`Raw roadmap data saved to: ${path.join(config.OUTPUT_DEBUG_DIR, config.ROADMAP_OUTPUT_FILE)}`);
     console.log(`Formatted roadmap data saved to: ${path.join(config.OUTPUT_DIR, config.FORMATTED_ROADMAP_OUTPUT_FILE)}`);
+    console.log(`Individual section files (roadmap_section_*.json) saved to the ${config.OUTPUT_DIR} directory.`);
     console.log(`Section pages saved to the ${config.OUTPUT_DEBUG_DIR} directory.`);
     
     // Return the final formatted data
