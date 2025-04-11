@@ -57,3 +57,19 @@ node main.js civitai.com --roadmap-only --item-limit=10
 Data is saved to:
 - `output/[product-domain]/`: JSON data files
 - `output_debug/`: Debug logs and additional information 
+
+## Website Viewer
+
+The scraper automatically creates a static website to view the scraped data:
+
+1. After running the scraper, look in the `website` directory
+2. Open `website/index.html` in any browser to view the data
+3. No server required - just double-click the file to open
+
+Each scraped product is automatically added to the website's product list, and you can easily switch between them in the interface.
+
+```bash
+# Run the scraper, then open the website
+node main.js civitai.com
+# Now open website/index.html in your browser
+``` 

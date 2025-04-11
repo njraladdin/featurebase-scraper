@@ -14,6 +14,8 @@ const { fetchOrganizationData } = require('./organization');
 const DEFAULT_PRODUCT = 'lovable.dev';
 const OUTPUT_DIR = 'output';
 const OUTPUT_DEBUG_DIR = 'output_debug';
+const WEBSITE_DATA_DIR = 'website/data';
+const WEBSITE_INDEX_PATH = 'website/index.html';
 const SCRAPER_LOG_FILE = 'scraper_log.txt';
 const DEFAULT_ITEM_LIMIT = 0; // 0 means no limit
 
@@ -112,6 +114,135 @@ async function convertAllJsonToJsDataFiles(productDomain) {
 }
 
 /**
+ * Copy output files to website/data directory for the specified product
+ * @param {string} productDomain - The product domain
+ * @returns {Promise<void>}
+ */
+async function copyFilesToWebsiteData(productDomain) {
+    try {
+        // Define source and destination directories
+        const sourceDir = path.join(OUTPUT_DIR, productDomain);
+        const destDir = path.join(WEBSITE_DATA_DIR, productDomain);
+        
+        // Create the destination directory if it doesn't exist
+        await fs.mkdir(destDir, { recursive: true });
+        
+        // Get all files in the source directory
+        const files = await fs.readdir(sourceDir);
+        
+        // Filter out files we want to copy (JSON and JS data files)
+        const filesToCopy = files.filter(file => 
+            file.endsWith('.json') || file.endsWith('_data.js')
+        );
+        
+        // Copy each file to the destination directory
+        for (const file of filesToCopy) {
+            const sourcePath = path.join(sourceDir, file);
+            const destPath = path.join(destDir, file);
+            
+            // Copy file (overwrites if it already exists)
+            await fs.copyFile(sourcePath, destPath);
+            await logMessage(`Copied ${file} to ${path.relative(process.cwd(), destPath)}`);
+        }
+        
+        await logMessage(`Successfully copied ${filesToCopy.length} files to website/data/${productDomain}`);
+    } catch (error) {
+        throw new Error(`Error copying files to website/data: ${error.message}`);
+    }
+}
+
+/**
+ * Update the products array in website/index.html
+ * @param {string} productDomain - The product domain
+ * @param {Object} organizationData - The organization data with logo information
+ * @returns {Promise<void>}
+ */
+async function updateWebsiteProductList(productDomain, organizationData) {
+    try {
+        // Check if website/index.html exists
+        const indexExists = await fs.access(WEBSITE_INDEX_PATH).then(() => true).catch(() => false);
+        if (!indexExists) {
+            throw new Error(`Website index file not found: ${WEBSITE_INDEX_PATH}`);
+        }
+        
+        // Read the index.html file
+        const indexContent = await fs.readFile(WEBSITE_INDEX_PATH, 'utf8');
+        
+        // Find the products array in the HTML file
+        const productArrayRegex = /const\s+productIndex\s*=\s*\{\s*"products"\s*:\s*\[([\s\S]*?)\]\s*\}/;
+        const productArrayMatch = indexContent.match(productArrayRegex);
+        
+        if (!productArrayMatch) {
+            throw new Error('Could not find the products array in the index.html file');
+        }
+        
+        // Parse the existing products array
+        const productsArrayString = productArrayMatch[0];
+        const productsArray = JSON.parse(productsArrayString.replace('const productIndex = ', ''));
+        
+        // Get the logo URL from organization data
+        let logoUrl = '';
+        if (organizationData && organizationData.picture) {
+            logoUrl = organizationData.picture;
+        }
+        
+        // Check if the product already exists in the array
+        const existingProductIndex = productsArray.products.findIndex(product => 
+            product.id === productDomain || product.name === productDomain
+        );
+        
+        if (existingProductIndex >= 0) {
+            // Update existing product entry
+            productsArray.products[existingProductIndex] = {
+                ...productsArray.products[existingProductIndex],
+                id: productDomain,
+                name: productDomain,
+                description: `${productDomain} Feedback Portal`
+            };
+            
+            // Only update logo if we have one and it's not already set
+            if (logoUrl && (!productsArray.products[existingProductIndex].logo || 
+                productsArray.products[existingProductIndex].logo !== logoUrl)) {
+                productsArray.products[existingProductIndex].logo = logoUrl;
+            }
+            
+            await logMessage(`Updated existing product in website/index.html: ${productDomain}`);
+        } else {
+            // Add new product entry
+            productsArray.products.push({
+                id: productDomain,
+                name: productDomain,
+                description: `${productDomain} Feedback Portal`,
+                logo: logoUrl
+            });
+            
+            await logMessage(`Added new product to website/index.html: ${productDomain}`);
+        }
+        
+        // Format the updated products array with proper indentation
+        const updatedProductsArrayString = JSON.stringify(productsArray, null, 2)
+            .replace(/"products":/g, '"products":')
+            .replace(/\n/g, '\n        ');
+        
+        // Create the updated script content
+        const updatedScriptContent = `const productIndex = ${updatedProductsArrayString};`;
+        
+        // Replace the old products array with the updated one
+        const updatedIndexContent = indexContent.replace(
+            productArrayRegex,
+            updatedScriptContent
+        );
+        
+        // Write the updated content back to the file
+        await fs.writeFile(WEBSITE_INDEX_PATH, updatedIndexContent);
+        await logMessage(`Successfully updated products list in ${WEBSITE_INDEX_PATH}`);
+        
+    } catch (error) {
+        throw new Error(`Error updating website product list: ${error.message}`);
+    }
+}
+
+/**
  * Main execution function
  * @param {Object} options Configuration options
  * @param {string} options.productDomain The product domain to scrape (e.g., 'lovable.dev', 'base44.com')
@@ -120,6 +251,8 @@ async function convertAllJsonToJsDataFiles(productDomain) {
  * @param {boolean} options.runOrganizationScraper Whether to run the organization data scraper
  * @param {number} options.itemLimit Limit for items to fetch (0 = no limit) - applies to both feedback posts and roadmap items per section
  * @param {boolean} options.generateJsModules Whether to generate JavaScript data files from JSON files
+ * @param {boolean} options.copyToWebsite Whether to copy output files to website/data directory
+ * @param {boolean} options.updateWebsiteProducts Whether to update the products array in website/index.html
  */
 async function runScraper(options = {}) {
     const {
@@ -128,7 +261,9 @@ async function runScraper(options = {}) {
         runRoadmapScraper = true,
         runOrganizationScraper = true,
         itemLimit = DEFAULT_ITEM_LIMIT,
-        generateJsModules = true
+        generateJsModules = true,
+        copyToWebsite = true,
+        updateWebsiteProducts = true
     } = options;
     
     // Create all required directories upfront
@@ -142,6 +277,12 @@ async function runScraper(options = {}) {
         const productDebugDir = path.join(OUTPUT_DEBUG_DIR, productDomain);
         await fs.mkdir(productOutputDir, { recursive: true });
         await fs.mkdir(productDebugDir, { recursive: true });
+        
+        // Create website data directory if copying is enabled
+        if (copyToWebsite) {
+            await fs.mkdir(WEBSITE_DATA_DIR, { recursive: true });
+            await fs.mkdir(path.join(WEBSITE_DATA_DIR, productDomain), { recursive: true });
+        }
     } catch (error) {
         console.error(`Error creating output directories: ${error.message}`);
         return;
@@ -217,6 +358,34 @@ async function runScraper(options = {}) {
         }
     }
     
+    // Copy output files to website/data directory if enabled
+    if (copyToWebsite) {
+        await logMessage('\n=== Copying Output Files to Website Data Directory ===');
+        try {
+            await copyFilesToWebsiteData(productDomain);
+            await logMessage('=== File Copying Completed Successfully ===');
+        } catch (error) {
+            await logMessage(`ERROR copying files to website/data: ${error.message}`);
+            if (error.stack) {
+                await logMessage(`Stack trace: ${error.stack}`);
+            }
+        }
+    }
+    
+    // Update products array in website/index.html if enabled
+    if (updateWebsiteProducts && organizationResults) {
+        await logMessage('\n=== Updating Products List in Website Index ===');
+        try {
+            await updateWebsiteProductList(productDomain, organizationResults);
+            await logMessage('=== Website Product List Update Completed Successfully ===');
+        } catch (error) {
+            await logMessage(`ERROR updating website product list: ${error.message}`);
+            if (error.stack) {
+                await logMessage(`Stack trace: ${error.stack}`);
+            }
+        }
+    }
+    
     // Calculate and log total execution time
     const endTime = new Date();
     const executionTimeMs = endTime - startTime;
@@ -225,6 +394,9 @@ async function runScraper(options = {}) {
     await logMessage(`\n=== Featurebase Scraper for ${productDomain} Completed at ${endTime.toISOString()} ===`);
     await logMessage(`Total execution time: ${executionTimeSec} seconds`);
     await logMessage(`Data saved to: ${productOutputDir}`);
+    if (copyToWebsite) {
+        await logMessage(`Data also copied to: ${path.join(WEBSITE_DATA_DIR, productDomain)}`);
+    }
     
     return {
         organizationResults,
@@ -241,6 +413,8 @@ async function runScraper(options = {}) {
 //   --organization-only    Run only the organization scraper
 //   --item-limit=N         Limit the number of items to fetch (applies to both feedback posts and roadmap items per section)
 //   --no-js-modules        Don't generate JavaScript data files from JSON files
+//   --no-website-copy      Don't copy output files to website/data directory
+//   --no-website-update    Don't update products array in website/index.html
 function parseCommandLineArgs() {
     const args = process.argv.slice(2);
     const options = {
@@ -249,7 +423,9 @@ function parseCommandLineArgs() {
         runRoadmapScraper: true,
         runOrganizationScraper: true,
         itemLimit: DEFAULT_ITEM_LIMIT,
-        generateJsModules: true
+        generateJsModules: true,
+        copyToWebsite: true,
+        updateWebsiteProducts: true
     };
     
     // First argument is the product domain if provided
@@ -278,6 +454,16 @@ function parseCommandLineArgs() {
         options.generateJsModules = false;
     }
     
+    // Option to disable copying to website/data
+    if (args.includes('--no-website-copy')) {
+        options.copyToWebsite = false;
+    }
+    
+    // Option to disable updating the products array in website/index.html
+    if (args.includes('--no-website-update')) {
+        options.updateWebsiteProducts = false;
+    }
+    
     // Parse item limit if provided
     const limitArg = args.find(arg => arg.startsWith('--item-limit='));
     if (limitArg) {
@@ -303,6 +489,8 @@ if (require.main === module) {
     console.log(`- Roadmap Scraper: ${options.runRoadmapScraper ? 'Enabled' : 'Disabled'}`);
     console.log(`- Item Limit: ${options.itemLimit === 0 ? 'No Limit' : options.itemLimit}`);
     console.log(`- Generate JS Data Files: ${options.generateJsModules ? 'Enabled' : 'Disabled'}`);
+    console.log(`- Copy to Website Data: ${options.copyToWebsite ? 'Enabled' : 'Disabled'}`);
+    console.log(`- Update Website Products: ${options.updateWebsiteProducts ? 'Enabled' : 'Disabled'}`);
     console.log('');
     
     // Run the scraper
@@ -316,5 +504,7 @@ if (require.main === module) {
 module.exports = {
     runScraper,
     convertJsonToJsDataFile,
-    convertAllJsonToJsDataFiles
+    convertAllJsonToJsDataFiles,
+    copyFilesToWebsiteData,
+    updateWebsiteProductList
 }; 
