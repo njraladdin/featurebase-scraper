@@ -92,3 +92,4 @@ dist
 data/
 project.md
 output_debug/
+*.zip
