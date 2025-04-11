@@ -798,6 +798,121 @@ body {
   line-height: 1.5;
 }
 
+/* Add styling for images in comments */
+.comment-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 10px 0;
+  border-radius: 6px;
+}
+
+/* Handle data-width attribute */
+.comment-content img[data-width="100%"] {
+  width: 100%;
+}
+
+.comment-content img[data-width="75%"] {
+  width: 75%;
+}
+
+.comment-content img[data-width="50%"] {
+  width: 50%;
+}
+
+.comment-content img[data-width="25%"] {
+  width: 25%;
+}
+
+/* Handle image alignment attributes */
+.comment-content img[data-align="left"] {
+  float: left;
+  margin-right: 15px;
+  margin-bottom: 10px;
+  max-width: calc(100% - 15px);
+}
+
+.comment-content img[data-align="right"] {
+  float: right;
+  margin-left: 15px;
+  margin-bottom: 10px;
+  max-width: calc(100% - 15px);
+}
+
+.comment-content img[data-align="center"] {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Clear floats after image display */
+.comment-content p:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+/* Apply the same image styles to feedback content */
+.feedback-content img,
+.roadmap-item-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 10px 0;
+  border-radius: 6px;
+}
+
+/* Handle data-width attribute in feedback */
+.feedback-content img[data-width="100%"],
+.roadmap-item-content img[data-width="100%"] {
+  width: 100%;
+}
+
+.feedback-content img[data-width="75%"],
+.roadmap-item-content img[data-width="75%"] {
+  width: 75%;
+}
+
+.feedback-content img[data-width="50%"],
+.roadmap-item-content img[data-width="50%"] {
+  width: 50%;
+}
+
+.feedback-content img[data-width="25%"],
+.roadmap-item-content img[data-width="25%"] {
+  width: 25%;
+}
+
+/* Handle image alignment attributes in feedback */
+.feedback-content img[data-align="left"],
+.roadmap-item-content img[data-align="left"] {
+  float: left;
+  margin-right: 15px;
+  margin-bottom: 10px;
+  max-width: calc(100% - 15px);
+}
+
+.feedback-content img[data-align="right"],
+.roadmap-item-content img[data-align="right"] {
+  float: right;
+  margin-left: 15px;
+  margin-bottom: 10px;
+  max-width: calc(100% - 15px);
+}
+
+.feedback-content img[data-align="center"],
+.roadmap-item-content img[data-align="center"] {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Clear floats after image display */
+.feedback-content p:after,
+.roadmap-item-content p:after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
 /* Responsive adjustments for comment section */
 @media (max-width: 768px) {
   .comment-header {
@@ -808,6 +923,24 @@ body {
   
   .comment-date {
     margin-left: 32px; /* Aligns with author name */
+  }
+  
+  /* Responsive image handling for smaller screens */
+  .comment-content img,
+  .feedback-content img,
+  .roadmap-item-content img {
+    max-width: 100% !important;
+    float: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
+  }
+  
+  /* Force full width on smaller screens regardless of data-width attribute */
+  .comment-content img[data-width],
+  .feedback-content img[data-width],
+  .roadmap-item-content img[data-width] {
+    width: 100% !important;
   }
 }
 

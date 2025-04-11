@@ -574,6 +574,9 @@ function createRoadmapItemHtml(item) {
     // Get upvotes
     const upvotes = item.upvotes || 0;
     
+    // Get content, maintaining HTML if present
+    const content = item.contentText || item.content || '';
+    
     return `
         <div class="roadmap-item">
             <div class="roadmap-item-header">
@@ -603,8 +606,8 @@ function createRoadmapItemHtml(item) {
                 ` : ''}
             </div>
             
-            ${item.contentText ? `
-                <div class="roadmap-item-content">${item.contentText}</div>
+            ${content ? `
+                <div class="roadmap-item-content">${content}</div>
             ` : ''}
             
             <div class="roadmap-item-stats">
@@ -649,6 +652,9 @@ function createFeedbackItemHtml(item) {
     const categoryName = item.category ? item.category.name : '';
     const categoryIcon = item.category && item.category.icon ? item.category.icon.value : '';
     
+    // Get content, maintaining HTML if present
+    const content = item.contentText || item.content || '';
+    
     return `
         <div class="feedback-item">
             <div class="feedback-header">
@@ -670,8 +676,8 @@ function createFeedbackItemHtml(item) {
                 ` : ''}
             </div>
             
-            ${item.contentText ? `
-                <div class="feedback-content">${item.contentText}</div>
+            ${content ? `
+                <div class="feedback-content">${content}</div>
             ` : ''}
             
             <div class="feedback-stats">
@@ -712,6 +718,13 @@ function createCommentHtml(comment) {
         day: 'numeric' 
     });
     
+    // Get content, maintaining HTML if present
+    let content = comment.contentText || comment.content || '';
+    
+    // Process content to ensure proper handling of image data attributes
+    // The content is already expected to be HTML, so we don't need to sanitize it here
+    // In a production app, you would want to sanitize any user-generated HTML
+    
     return `
         <div class="comment-item">
             <div class="comment-header">
@@ -726,7 +739,7 @@ function createCommentHtml(comment) {
             </div>
             
             <div class="comment-content">
-                ${comment.contentText || comment.content || ''}
+                ${content}
             </div>
         </div>
     `;
