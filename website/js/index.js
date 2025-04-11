@@ -43,8 +43,17 @@ function loadProductList() {
         
         // Display the products
         let html = `
-            <h1 style="text-align: center; margin: 30px 0; color: white;">Feedback & Roadmap Viewer</h1>
-            <div class="product-grid">
+            <div class="product-header">
+                <div class="container">
+                    <div class="product-header-content">
+                        <h1 class="product-header-title">Feedback & Roadmap</h1>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="container">
+                <div class="product-select-info">Select a product to view its feedback and roadmap</div>
+                <div class="product-grid">
         `;
         
         data.products.forEach(product => {
@@ -52,19 +61,24 @@ function loadProductList() {
                 <div class="product-card" onclick="loadProduct('${product.id}')">
                     <img src="${product.logo}" alt="${product.name} logo" class="product-logo" onerror="this.src='https://via.placeholder.com/100?text=${product.name.charAt(0)}'">
                     <h2 class="product-name">${product.name}</h2>
-                    <p class="product-description">${product.description}</p>
                 </div>
             `;
         });
         
-        html += '</div>';
+        html += `
+                </div>
+            </div>
+        `;
+        
         mainContent.innerHTML = html;
         
     } catch (error) {
         mainContent.innerHTML = `
-            <div class="error">
-                <h2>Error loading products</h2>
-                <p>${error.message}</p>
+            <div class="container">
+                <div class="error">
+                    <h2>Error loading products</h2>
+                    <p>${error.message}</p>
+                </div>
             </div>
         `;
         console.error('Error loading products:', error);
@@ -97,6 +111,9 @@ function loadProduct(productId) {
         const headerHtml = `
             <div class="product-header">
                 <div class="container">
+                    <div class="back-nav">
+                        <span class="back-text" onclick="loadProductList()">All Products</span>
+                    </div>
                     <div class="product-header-content">
                         <img src="${product.logo}" alt="${product.name} logo" class="product-header-logo" onerror="this.src='https://via.placeholder.com/50?text=${product.name.charAt(0)}'">
                         <h1 class="product-header-title">${product.name}</h1>
